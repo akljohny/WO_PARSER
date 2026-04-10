@@ -282,13 +282,20 @@ document.getElementById('push-btn').addEventListener('click', function() {
   var custPO   = document.getElementById('f-po').value.trim();
   var vendorPO = document.getElementById('f-vendorpo').value.trim();
 
+  function toSSDate(d) {
+    if (!d) return '';
+    var p = d.split('/');
+    if (p.length === 3) return p[2] + '-' + p[0].padStart(2,'0') + '-' + p[1].padStart(2,'0');
+    return d;
+  }
+
   var cells = [];
   if (docket)   cells.push({ columnId: COL.docket,       value: docket });
   if (customer) cells.push({ columnId: COL.customer,     value: customer });
   if (desc)     cells.push({ columnId: COL.description,  value: desc });
   if (qty)      cells.push({ columnId: COL.qty,          value: Number(qty) });
-  if (startDt)  cells.push({ columnId: COL.start_date,   value: startDt });
-  if (shipDt)   cells.push({ columnId: COL.ship_date,    value: shipDt });
+  if (startDt)  cells.push({ columnId: COL.start_date,   value: toSSDate(startDt) });
+  if (shipDt)   cells.push({ columnId: COL.ship_date,    value: toSSDate(shipDt) });
   if (amount)   cells.push({ columnId: COL.sales_amount, value: amount });
   if (paint)    cells.push({ columnId: COL.paint,        value: paint });
   if (custPO)   cells.push({ columnId: COL.customer_po,  value: custPO });

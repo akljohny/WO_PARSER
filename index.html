@@ -90,10 +90,7 @@
         <label>CLOUDFLARE WORKER URL</label>
         <input type="text" id="worker-url" value="https://productionschedule.akhil-johny.workers.dev" placeholder="https://your-worker.workers.dev" />
       </div>
-      <div class="cfield">
-        <label>ANTHROPIC API KEY</label>
-        <input type="password" id="api-key" placeholder="sk-ant-..." />
-      </div>
+
       <div class="cfield">
         <label>SMARTSHEET SHEET ID</label>
         <input type="text" id="sheet-id" value="595771352108932" />
@@ -149,7 +146,7 @@
 var pdfBase64 = null;
 
 // Config persistence
-var cfgKeys = ['worker-url', 'api-key', 'sheet-id'];
+var cfgKeys = ['worker-url', 'sheet-id'];
 for (var ci = 0; ci < cfgKeys.length; ci++) {
   (function(k) {
     var el = document.getElementById(k);
@@ -164,11 +161,10 @@ for (var ci = 0; ci < cfgKeys.length; ci++) {
 
 function updateDot() {
   var w = document.getElementById('worker-url').value.trim();
-  var a = document.getElementById('api-key').value.trim();
   var dot = document.getElementById('conn-dot');
   var lbl = document.getElementById('conn-label');
-  if (w && a) { dot.className = 'dot green'; lbl.textContent = 'configured'; }
-  else        { dot.className = 'dot red';   lbl.textContent = 'not configured'; }
+  if (w) { dot.className = 'dot green'; lbl.textContent = 'configured'; }
+  else   { dot.className = 'dot red';   lbl.textContent = 'not configured'; }
 }
 updateDot();
 
@@ -189,50 +185,33 @@ document.getElementById('file-input').addEventListener('change', function() {
 
 // Extract
 document.getElementById('extract-btn').addEventListener('click', function() {
-  var apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) { alert('Please enter your Anthropic API key.'); return; }
   if (!pdfBase64) { alert('Please select a PDF file.'); return; }
+
+  var workerUrl = document.getElementById('worker-url').value.trim().replace(/\/$/, '');
+  if (!workerUrl) { alert('Please enter your Cloudflare Worker URL.'); return; }
 
   var btn = document.getElementById('extract-btn');
   btn.disabled = true;
   btn.textContent = 'Extracting...';
   showState('Extracting...', 'Claude is reading the work order...');
-  addLog('info', 'Sending to Claude...');
+  addLog('info', 'Sending PDF to worker...');
 
-  var sys = 'You are a data extraction assistant for Forestdale Metal Products Inc. Extract fields from Forestdale work orders and return ONLY valid JSON with no extra text, no markdown code fences.\n\nReturn this JSON:\n{"docket_number":"Order number e.g. 261510","customer_name":"match to: ACOUFELT,ARCHMILL,ARAM,ALLFASTENERS,ANCRA,AQUEST,BUYERS,CDI SPACES,CEDARCREST,DESCOR,ERGOCENTRIC,EZ STAK,FRONTLINE_NA,FLEXXFORM,GLOBAL,GLOBAL UPHOLSTERY,GLOBAL CASEGOODS,GLOBAL EVOLVE,HENDERSON,KNU,KWALU,KEILHAUER,LONDON MACHINERY,LEGEND,MAIN ST GROUP,PACKSIZE,REFORM,SOURCE INTL,SAFESMART ACCESS,SNAPCAB,SPEC,STEELCASE,THREE H,TRYNEX,TORK WINCH,TEKNION","customer_po":"PO Number from header","description":"primary line item part number plus name","quantity":"customer release quantity as number","start_date":"Order Date MM/DD/YYYY","ship_date":"customer release due date MM/DD/YYYY","sales_amount":"main line item total as $XX,XXX.XX","paint_color":"match to: Textured Black,Tiger Silver,Platinum,IVC Satin Black,EB103 Satin Black,TCI Black,White,Yellow,Black,OYSTER WHITE,MATTE BLACK,RAL9016 WHITE,STEEL BLUE,CHESTNUT BROWN,AGED COPPER,KOKO BROWN,RAL7037,RAL 7045 TELEGRAY 1,Raw,Chrome,Galvanized,Polished Chrome,Brushed Chrome,Satin Black,E-Coat + Powdercoat (BLACK) or empty string","vendor_po":"all vendor PO lines from bottom of doc each on new line"}';
-
-  fetch('https://api.anthropic.com/v1/messages', {
+  fetch(workerUrl + '/extract', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: sys,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
-          { type: 'text', text: 'Extract fields from this Forestdale work order. Return only the JSON.' }
-        ]
-      }]
-    })
+    body: JSON.stringify({ pdfBase64: pdfBase64 })
   })
   .then(function(r) {
     return r.json().then(function(d) {
-      if (!r.ok) throw new Error(d.error ? d.error.message : 'API error ' + r.status);
+      if (!r.ok) throw new Error(d.message || 'Worker error ' + r.status);
       return d;
     });
   })
   .then(function(d) {
-    var raw = '';
-    for (var i = 0; i < d.content.length; i++) {
-      if (d.content[i].type === 'text') { raw = d.content[i].text; break; }
-    }
-    raw = raw.replace(/```json/g,'').replace(/```/g,'').trim();
-    var parsed = JSON.parse(raw);
-    fillFields(parsed);
+    if (!d.data) throw new Error('No data returned from worker');
+    fillFields(d.data);
     showFields();
-    addLog('ok', 'Extracted docket #' + parsed.docket_number + ' - ' + parsed.customer_name);
+    addLog('ok', 'Extracted docket #' + d.data.docket_number + ' - ' + d.data.customer_name);
   })
   .catch(function(e) {
     showState('Error', e.message);

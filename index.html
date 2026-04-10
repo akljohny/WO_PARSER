@@ -473,10 +473,7 @@
         <div class="drop-text-sub">or use the button below</div>
         <div class="file-name" id="file-name-display"></div>
       </div>
-      <input type="file" id="file-input" accept=".pdf" style="display:none" />
-      <label for="file-input" style="display:block;margin-top:10px;padding:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text-dim);font-family:var(--mono);font-size:12px;text-align:center;cursor:pointer;letter-spacing:0.05em;">
-        📂 &nbsp;Browse for PDF
-      </label>
+      <input type="file" id="file-input" accept="application/pdf,.pdf" style="display:block;margin-top:10px;width:100%;font-family:var(--mono);font-size:12px;color:var(--text-dim);background:var(--surface2);border:1px solid var(--border2);padding:9px 12px;cursor:pointer;" />
     </div>
 
     <button id="extract-btn" disabled onclick="extractPDF()">
@@ -597,28 +594,20 @@ updateConnDot();
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
-// Drag and drop
-dropZone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', e => { e.stopPropagation(); dropZone.classList.remove('dragover'); });
+// Drag and drop on drop zone
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
-  e.stopPropagation();
   dropZone.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
-  if (file) {
-    loadFile(file);
-  } else {
-    alert('Could not read the dropped file. Please use the Browse button instead.');
-  }
+  if (file) loadFile(file);
 });
 
-// Also allow clicking the drop zone itself
-dropZone.addEventListener('click', () => fileInput.click());
-
-// File input change (Browse button)
-fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+// Native file input - most reliable method
+fileInput.addEventListener('change', function() {
+  const file = this.files[0];
+  if (file) loadFile(file);
 });
 
 function loadFile(file) {

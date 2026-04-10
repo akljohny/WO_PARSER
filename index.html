@@ -462,18 +462,21 @@
     <div class="panel-section" style="flex:1">
       <div class="section-label">Work Order PDF</div>
 
-      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div id="drop-zone">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
           <line x1="12" y1="18" x2="12" y2="12"/>
           <polyline points="9 15 12 12 15 15"/>
         </svg>
-        <div class="drop-text-main">Drop PDF here or click to browse</div>
-        <div class="drop-text-sub">Forestdale work order / job traveler</div>
+        <div class="drop-text-main">Drop PDF here</div>
+        <div class="drop-text-sub">or use the button below</div>
         <div class="file-name" id="file-name-display"></div>
       </div>
-      <input type="file" id="file-input" accept=".pdf" />
+      <input type="file" id="file-input" accept=".pdf" style="display:none" />
+      <label for="file-input" style="display:block;margin-top:10px;padding:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text-dim);font-family:var(--mono);font-size:12px;text-align:center;cursor:pointer;letter-spacing:0.05em;">
+        📂 &nbsp;Browse for PDF
+      </label>
     </div>
 
     <button id="extract-btn" disabled onclick="extractPDF()">
@@ -594,15 +597,26 @@ updateConnDot();
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+// Drag and drop
+dropZone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', e => { e.stopPropagation(); dropZone.classList.remove('dragover'); });
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
+  e.stopPropagation();
   dropZone.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
-  if (file && file.type === 'application/pdf') loadFile(file);
+  if (file) {
+    loadFile(file);
+  } else {
+    alert('Could not read the dropped file. Please use the Browse button instead.');
+  }
 });
 
+// Also allow clicking the drop zone itself
+dropZone.addEventListener('click', () => fileInput.click());
+
+// File input change (Browse button)
 fileInput.addEventListener('change', () => {
   if (fileInput.files[0]) loadFile(fileInput.files[0]);
 });
@@ -611,10 +625,13 @@ function loadFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     pdfBase64 = reader.result.split(',')[1];
-    document.getElementById('file-name-display').textContent = file.name;
+    document.getElementById('file-name-display').textContent = '✓ ' + file.name;
     dropZone.classList.add('has-file');
     document.getElementById('extract-btn').disabled = false;
     log('info', `Loaded: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
+  };
+  reader.onerror = () => {
+    alert('Failed to read file. Please try the Browse button.');
   };
   reader.readAsDataURL(file);
 }
